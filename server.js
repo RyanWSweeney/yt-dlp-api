@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.API_TOKEN || "";
 const YT_DLP_PATH = process.env.YT_DLP_PATH || "yt-dlp";
 const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo*+bestaudio/best";
+const DEBUG = process.env.DEBUG === "1";
 
 app.use(express.json({ limit: "1mb" }));
 
@@ -38,10 +39,20 @@ function cleanupDir(dirPath) {
   fs.rm(dirPath, { recursive: true, force: true }, () => {});
 }
 
+function logDebug(message, details) {
+  if (!DEBUG) {
+    return;
+  }
+
+  console.log(message, details);
+}
+
 app.post("/download", requireAuth, (req, res) => {
   const url = req.body?.url;
   const format = req.body?.format || DEFAULT_FORMAT;
   const filename = req.body?.filename || "video.mp4";
+
+  logDebug("Starting download", { url, format, filename });
 
   if (!url || typeof url !== "string") {
     res.status(400).json({ error: "Body must include a string `url`." });
@@ -63,6 +74,8 @@ app.post("/download", requireAuth, (req, res) => {
       "--no-warnings",
       "--merge-output-format",
       "mp4",
+      "--print",
+      "after_move:filepath",
       "-f",
       format,
       "-o",
@@ -71,11 +84,16 @@ app.post("/download", requireAuth, (req, res) => {
     ];
 
     const child = spawn(YT_DLP_PATH, args, {
-      stdio: ["ignore", "ignore", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"]
     });
 
+    let stdout = "";
     let stderr = "";
     let finished = false;
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
 
     child.stderr.on("data", (chunk) => {
       stderr += chunk.toString();
@@ -98,6 +116,12 @@ app.post("/download", requireAuth, (req, res) => {
       finished = true;
 
       if (code !== 0) {
+        logDebug("yt-dlp exited with error", {
+          url,
+          code,
+          stdout: stdout.trim(),
+          stderr: stderr.trim()
+        });
         cleanupDir(tempDir);
         if (!res.headersSent) {
           res.status(502).json({
@@ -110,6 +134,11 @@ app.post("/download", requireAuth, (req, res) => {
 
       fs.readdir(tempDir, (readError, files) => {
         if (readError) {
+          logDebug("Failed to inspect temp directory", {
+            url,
+            tempDir,
+            error: readError.message
+          });
           cleanupDir(tempDir);
           res.status(500).json({
             error: "Failed to inspect downloaded file.",
@@ -118,9 +147,25 @@ app.post("/download", requireAuth, (req, res) => {
           return;
         }
 
-        const videoFile = files.find((file) => !file.endsWith(".part"));
+        const printedPath = stdout
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .at(-1);
 
-        if (!videoFile) {
+        logDebug("Temp directory contents", {
+          url,
+          tempDir,
+          printedPath,
+          files,
+          stdout: stdout.trim(),
+          stderr: stderr.trim()
+        });
+
+        const videoFile = files.find((file) => !file.endsWith(".part"));
+        const videoPath = printedPath || (videoFile ? path.join(tempDir, videoFile) : "");
+
+        if (!videoPath) {
           cleanupDir(tempDir);
           res.status(502).json({
             error: "yt-dlp returned no file."
@@ -128,7 +173,6 @@ app.post("/download", requireAuth, (req, res) => {
           return;
         }
 
-        const videoPath = path.join(tempDir, videoFile);
         const stream = fs.createReadStream(videoPath);
 
         res.status(200);
