@@ -10,7 +10,7 @@ services:
     environment:
       PORT: 3000
       API_TOKEN: ${API_TOKEN:-change-me}
-      YT_DLP_FORMAT: ${YT_DLP_FORMAT:-bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best}
+      YT_DLP_FORMAT: ${YT_DLP_FORMAT:-best[protocol=https][vcodec^=avc1][ext=mp4]/best[ext=mp4]/bv*+ba/b}
       YT_DLP_COOKIES_PATH: ${YT_DLP_COOKIES_PATH:-}
       YT_DLP_OUTPUT_MODE: ${YT_DLP_OUTPUT_MODE:-passthrough}
     volumes:

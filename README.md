@@ -83,7 +83,7 @@ YT_DLP_PATH=/full/path/to/yt-dlp
 Optional default format override:
 
 ```bash
-YT_DLP_FORMAT='bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best'
+YT_DLP_FORMAT='best[protocol=https][vcodec^=avc1][ext=mp4]/best[ext=mp4]/bv*+ba/b'
 ```
 
 Optional cookies file for sites like Instagram:
@@ -121,7 +121,7 @@ Authorization: Bearer your-secret-token
 {
   "url": "https://www.youtube.com/watch?v=...",
   "filename": "video.mp4",
-  "format": "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best",
+  "format": "best[protocol=https][vcodec^=avc1][ext=mp4]/best[ext=mp4]/bv*+ba/b",
   "outputMode": "passthrough"
 }
 ```
