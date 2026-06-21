@@ -9,9 +9,9 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.API_TOKEN || "";
 const YT_DLP_PATH = process.env.YT_DLP_PATH || "yt-dlp";
-const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo*+bestaudio/best";
+const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best";
 const COOKIES_PATH = process.env.YT_DLP_COOKIES_PATH || "";
-const DEFAULT_OUTPUT_MODE = process.env.YT_DLP_OUTPUT_MODE || "compatible-mp4";
+const DEFAULT_OUTPUT_MODE = process.env.YT_DLP_OUTPUT_MODE || "passthrough";
 const DEBUG = process.env.DEBUG === "1";
 
 app.use(express.json({ limit: "1mb" }));

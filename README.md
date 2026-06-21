@@ -83,7 +83,7 @@ YT_DLP_PATH=/full/path/to/yt-dlp
 Optional default format override:
 
 ```bash
-YT_DLP_FORMAT='bestvideo*+bestaudio/best'
+YT_DLP_FORMAT='bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best'
 ```
 
 Optional cookies file for sites like Instagram:
@@ -97,11 +97,11 @@ If you are using Docker Compose, place a Netscape-format `cookies.txt` file next
 Optional output handling:
 
 ```bash
-YT_DLP_OUTPUT_MODE=compatible-mp4
+YT_DLP_OUTPUT_MODE=passthrough
 ```
 
-`compatible-mp4` re-encodes the final file to H.264/AAC for better QuickTime and Apple compatibility.
-Use `passthrough` if you want the downloaded file streamed back without re-encoding.
+`passthrough` returns the downloaded file without re-encoding.
+`compatible-mp4` re-encodes the final file to H.264/AAC for better QuickTime and Apple compatibility when needed.
 
 ## API
 
@@ -121,8 +121,8 @@ Authorization: Bearer your-secret-token
 {
   "url": "https://www.youtube.com/watch?v=...",
   "filename": "video.mp4",
-  "format": "bestvideo*+bestaudio/best",
-  "outputMode": "compatible-mp4"
+  "format": "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/bestvideo*+bestaudio/best",
+  "outputMode": "passthrough"
 }
 ```
 
