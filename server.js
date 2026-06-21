@@ -69,6 +69,20 @@ app.post("/download", requireAuth, (req, res) => {
       return;
     }
 
+    const tempCookiesPath = COOKIES_PATH ? path.join(tempDir, "cookies.txt") : "";
+    if (COOKIES_PATH) {
+      try {
+        fs.copyFileSync(COOKIES_PATH, tempCookiesPath);
+      } catch (copyError) {
+        cleanupDir(tempDir);
+        res.status(500).json({
+          error: "Failed to prepare cookies file.",
+          details: copyError.message
+        });
+        return;
+      }
+    }
+
     const outputTemplate = path.join(tempDir, "video.%(ext)s");
     const args = [
       "--no-playlist",
@@ -84,8 +98,8 @@ app.post("/download", requireAuth, (req, res) => {
       url
     ];
 
-    if (COOKIES_PATH) {
-      args.splice(args.length - 1, 0, "--cookies", COOKIES_PATH);
+    if (tempCookiesPath) {
+      args.splice(args.length - 1, 0, "--cookies", tempCookiesPath);
     }
 
     const child = spawn(YT_DLP_PATH, args, {
