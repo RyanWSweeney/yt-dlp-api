@@ -5,7 +5,7 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV YT_DLP_PATH=/usr/local/bin/yt-dlp
-ENV YT_DLP_FORMAT=best[ext=mp4]/best
+ENV YT_DLP_FORMAT=bestvideo*+bestaudio/best
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl ffmpeg python3 file \

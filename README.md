@@ -82,7 +82,7 @@ YT_DLP_PATH=/full/path/to/yt-dlp
 Optional default format override:
 
 ```bash
-YT_DLP_FORMAT='best[ext=mp4]/best'
+YT_DLP_FORMAT='bestvideo*+bestaudio/best'
 ```
 
 ## API
@@ -103,7 +103,7 @@ Authorization: Bearer your-secret-token
 {
   "url": "https://www.youtube.com/watch?v=...",
   "filename": "video.mp4",
-  "format": "best[ext=mp4]/best"
+  "format": "bestvideo*+bestaudio/best"
 }
 ```
 

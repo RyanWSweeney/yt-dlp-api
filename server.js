@@ -9,7 +9,7 @@ const app = express();
 const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.API_TOKEN || "";
 const YT_DLP_PATH = process.env.YT_DLP_PATH || "yt-dlp";
-const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "best[ext=mp4]/best";
+const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo*+bestaudio/best";
 
 app.use(express.json({ limit: "1mb" }));
 
