@@ -12,6 +12,7 @@ services:
       API_TOKEN: ${API_TOKEN:-change-me}
       YT_DLP_FORMAT: ${YT_DLP_FORMAT:-bestvideo*+bestaudio/best}
       YT_DLP_COOKIES_PATH: ${YT_DLP_COOKIES_PATH:-}
+      YT_DLP_OUTPUT_MODE: ${YT_DLP_OUTPUT_MODE:-compatible-mp4}
     volumes:
       - ./cookies.txt:/app/cookies.txt:ro
     healthcheck:

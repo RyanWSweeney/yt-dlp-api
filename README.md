@@ -94,6 +94,15 @@ YT_DLP_COOKIES_PATH=/app/cookies.txt
 
 If you are using Docker Compose, place a Netscape-format `cookies.txt` file next to `docker-compose.yml`.
 
+Optional output handling:
+
+```bash
+YT_DLP_OUTPUT_MODE=compatible-mp4
+```
+
+`compatible-mp4` re-encodes the final file to H.264/AAC for better QuickTime and Apple compatibility.
+Use `passthrough` if you want the downloaded file streamed back without re-encoding.
+
 ## API
 
 ### Health
@@ -112,14 +121,15 @@ Authorization: Bearer your-secret-token
 {
   "url": "https://www.youtube.com/watch?v=...",
   "filename": "video.mp4",
-  "format": "bestvideo*+bestaudio/best"
+  "format": "bestvideo*+bestaudio/best",
+  "outputMode": "compatible-mp4"
 }
 ```
 
 ### Response
 
 - `200 OK`
-- `Content-Type: application/octet-stream`
+- `Content-Type: video/mp4`
 - Body is the raw video binary stream
 
 ## n8n Notes

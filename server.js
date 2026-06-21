@@ -11,6 +11,7 @@ const API_TOKEN = process.env.API_TOKEN || "";
 const YT_DLP_PATH = process.env.YT_DLP_PATH || "yt-dlp";
 const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo*+bestaudio/best";
 const COOKIES_PATH = process.env.YT_DLP_COOKIES_PATH || "";
+const DEFAULT_OUTPUT_MODE = process.env.YT_DLP_OUTPUT_MODE || "compatible-mp4";
 const DEBUG = process.env.DEBUG === "1";
 
 app.use(express.json({ limit: "1mb" }));
@@ -48,12 +49,49 @@ function logDebug(message, details) {
   console.log(message, details);
 }
 
+function runProcess(command, args) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      reject(error);
+    });
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+
+      const error = new Error(stderr.trim() || `${command} exited with code ${code}`);
+      error.code = code;
+      error.stdout = stdout;
+      error.stderr = stderr;
+      reject(error);
+    });
+  });
+}
+
 app.post("/download", requireAuth, (req, res) => {
   const url = req.body?.url;
   const format = req.body?.format || DEFAULT_FORMAT;
   const filename = req.body?.filename || "video.mp4";
+  const outputMode = req.body?.outputMode || DEFAULT_OUTPUT_MODE;
 
-  logDebug("Starting download", { url, format, filename });
+  logDebug("Starting download", { url, format, filename, outputMode });
 
   if (!url || typeof url !== "string") {
     res.status(400).json({ error: "Body must include a string `url`." });
@@ -151,7 +189,7 @@ app.post("/download", requireAuth, (req, res) => {
         return;
       }
 
-      fs.readdir(tempDir, (readError, files) => {
+      fs.readdir(tempDir, async (readError, files) => {
         if (readError) {
           logDebug("Failed to inspect temp directory", {
             url,
@@ -192,10 +230,52 @@ app.post("/download", requireAuth, (req, res) => {
           return;
         }
 
-        const stream = fs.createReadStream(videoPath);
+        let finalVideoPath = videoPath;
+
+        if (outputMode === "compatible-mp4") {
+          const compatiblePath = path.join(tempDir, "video-compatible.mp4");
+
+          try {
+            await runProcess("ffmpeg", [
+              "-y",
+              "-i",
+              videoPath,
+              "-c:v",
+              "libx264",
+              "-preset",
+              "veryfast",
+              "-crf",
+              "23",
+              "-pix_fmt",
+              "yuv420p",
+              "-c:a",
+              "aac",
+              "-b:a",
+              "128k",
+              "-movflags",
+              "+faststart",
+              compatiblePath
+            ]);
+            finalVideoPath = compatiblePath;
+          } catch (error) {
+            logDebug("ffmpeg compatibility transcode failed", {
+              url,
+              videoPath,
+              stderr: error.stderr || error.message
+            });
+            cleanupDir(tempDir);
+            res.status(502).json({
+              error: "Failed to convert video to compatible mp4.",
+              details: error.stderr?.trim() || error.message
+            });
+            return;
+          }
+        }
+
+        const stream = fs.createReadStream(finalVideoPath);
 
         res.status(200);
-        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Type", "video/mp4");
         res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
 
         stream.on("error", (streamError) => {
