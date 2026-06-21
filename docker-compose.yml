@@ -1,0 +1,19 @@
+services:
+  yt-dlp-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: yt-dlp-api
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      API_TOKEN: ${API_TOKEN:-change-me}
+      YT_DLP_FORMAT: ${YT_DLP_FORMAT:-best[ext=mp4]/best}
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
