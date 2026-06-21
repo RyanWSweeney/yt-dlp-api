@@ -64,7 +64,7 @@ docker compose down
 
 - App listens on container port `3000`
 - Host port is controlled by `PORT` in `.env`
-- Container includes both `ffmpeg` and the latest `yt-dlp` binary
+- Container includes `ffmpeg`, `python3`, and the latest `yt-dlp` binary
 - Restart policy is `unless-stopped`
 
 ## Run
