@@ -8,7 +8,7 @@ Minimal Express API for a droplet or VPS that lets n8n call `yt-dlp` and receive
 - `POST /download` accepts a video URL and streams the result back as raw binary
 - Optional bearer token auth through `API_TOKEN`
 
-This app does not save the video to disk. It pipes `yt-dlp` stdout straight to the HTTP response.
+This app downloads into a temporary file, then streams the finished video back in the HTTP response.
 
 ## Requirements
 
@@ -66,6 +66,7 @@ docker compose down
 - Host port is controlled by `PORT` in `.env`
 - Container includes `ffmpeg`, `python3`, and the latest `yt-dlp` binary
 - Restart policy is `unless-stopped`
+- If `YT_DLP_COOKIES_PATH` is set, the API passes that cookies file to `yt-dlp`
 
 ## Run
 
@@ -84,6 +85,14 @@ Optional default format override:
 ```bash
 YT_DLP_FORMAT='bestvideo*+bestaudio/best'
 ```
+
+Optional cookies file for sites like Instagram:
+
+```bash
+YT_DLP_COOKIES_PATH=/app/cookies.txt
+```
+
+If you are using Docker Compose, place a Netscape-format `cookies.txt` file next to `docker-compose.yml`.
 
 ## API
 

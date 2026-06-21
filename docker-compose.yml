@@ -11,6 +11,9 @@ services:
       PORT: 3000
       API_TOKEN: ${API_TOKEN:-change-me}
       YT_DLP_FORMAT: ${YT_DLP_FORMAT:-bestvideo*+bestaudio/best}
+      YT_DLP_COOKIES_PATH: ${YT_DLP_COOKIES_PATH:-}
+    volumes:
+      - ./cookies.txt:/app/cookies.txt:ro
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/health"]
       interval: 30s

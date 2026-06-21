@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT || 3000);
 const API_TOKEN = process.env.API_TOKEN || "";
 const YT_DLP_PATH = process.env.YT_DLP_PATH || "yt-dlp";
 const DEFAULT_FORMAT = process.env.YT_DLP_FORMAT || "bestvideo*+bestaudio/best";
+const COOKIES_PATH = process.env.YT_DLP_COOKIES_PATH || "";
 const DEBUG = process.env.DEBUG === "1";
 
 app.use(express.json({ limit: "1mb" }));
@@ -82,6 +83,10 @@ app.post("/download", requireAuth, (req, res) => {
       outputTemplate,
       url
     ];
+
+    if (COOKIES_PATH) {
+      args.splice(args.length - 1, 0, "--cookies", COOKIES_PATH);
+    }
 
     const child = spawn(YT_DLP_PATH, args, {
       stdio: ["ignore", "pipe", "pipe"]
