@@ -56,14 +56,15 @@ app.post("/download", requireAuth, (req, res) => {
   });
 
   let stderr = "";
-  let headersSent = false;
+  let streamStarted = false;
+  let clientGone = false;
 
   child.stderr.on("data", (chunk) => {
     stderr += chunk.toString();
   });
 
   child.stdout.once("data", () => {
-    headersSent = true;
+    streamStarted = true;
     res.status(200);
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
@@ -85,12 +86,17 @@ app.post("/download", requireAuth, (req, res) => {
 
   child.on("close", (code) => {
     if (code === 0) {
+      if (!streamStarted && !res.headersSent) {
+        res.status(502).json({
+          error: "yt-dlp returned no data."
+        });
+      }
       return;
     }
 
     const message = stderr.trim() || `yt-dlp exited with code ${code}`;
 
-    if (!headersSent && !res.headersSent) {
+    if (!streamStarted && !res.headersSent) {
       res.status(502).json({
         error: "yt-dlp failed.",
         details: message
@@ -98,10 +104,13 @@ app.post("/download", requireAuth, (req, res) => {
       return;
     }
 
-    res.destroy(new Error(message));
+    if (!clientGone) {
+      res.destroy(new Error(message));
+    }
   });
 
-  req.on("close", () => {
+  res.on("close", () => {
+    clientGone = !res.writableEnded;
     if (!child.killed) {
       child.kill("SIGTERM");
     }

@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  frontend:
+    image: ${DOCKER_USERNAME}/personal-website:frontend
+    ports:
+      - '8080:8080'
+    restart: always
+    mem_limit: 128m
+    mem_reservation: 32m
+    env_file:
+      - .env
+
+  backend:
+    image: ${DOCKER_USERNAME}/personal-website:backend
+    ports:
+      - '3000:3000'
+    restart: always
+    mem_limit: 128m
+    mem_reservation: 32m
+    env_file:
+      - .env
+
+  db:
+    image: postgres:15
+    container_name: postgres-db
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    restart: always
+    mem_limit: 256m
+    mem_reservation: 64m
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST_AUTH_METHOD: trust
+    env_file:
+      - .env
+
+  n8n:
+    build:
+      context: .
+      dockerfile: Dockerfile.n8n
+    ports:
+      - '5678:5678'
+    restart: always
+    volumes:
+      - root_n8n-data:/home/node/.n8n
+    environment:
+      - N8N_HOST=ryansweeney.org
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - N8N_PATH=/
+      - N8N_EDITOR_BASE_URL=https://n8n.ryansweeney.org/
+      - N8N_ENDPOINT_WEBHOOK=webhook
+      - WEBHOOK_URL=https://n8n.ryansweeney.org
+      - NODES_EXCLUDE=[]
+    env_file:
+      - .env
+    depends_on:
+      - yt-dlp-api
+
+  yt-dlp-api:
+    build:
+      context: ./yt-dlp-api
+      dockerfile: Dockerfile
+    container_name: yt-dlp-api
+    restart: unless-stopped
+    expose:
+      - '3000'
+    environment:
+      PORT: 3000
+      API_TOKEN: ${YT_DLP_API_TOKEN}
+      YT_DLP_FORMAT: ${YT_DLP_FORMAT:-best[ext=mp4]/best}
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://127.0.0.1:3000/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    env_file:
+      - .env
+
+volumes:
+  db-data:
+  root_n8n-data:
+    external: true
