@@ -1,5 +1,8 @@
 const express = require("express");
 const { spawn } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 const app = express();
 
@@ -31,6 +34,10 @@ app.get("/health", (_req, res) => {
   res.json({ ok: true });
 });
 
+function cleanupDir(dirPath) {
+  fs.rm(dirPath, { recursive: true, force: true }, () => {});
+}
+
 app.post("/download", requireAuth, (req, res) => {
   const url = req.body?.url;
   const format = req.body?.format || DEFAULT_FORMAT;
@@ -41,79 +48,127 @@ app.post("/download", requireAuth, (req, res) => {
     return;
   }
 
-  const args = [
-    "--no-playlist",
-    "--no-warnings",
-    "-f",
-    format,
-    "-o",
-    "-",
-    url
-  ];
-
-  const child = spawn(YT_DLP_PATH, args, {
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-
-  let stderr = "";
-  let streamStarted = false;
-  let clientGone = false;
-
-  child.stderr.on("data", (chunk) => {
-    stderr += chunk.toString();
-  });
-
-  child.stdout.once("data", () => {
-    streamStarted = true;
-    res.status(200);
-    res.setHeader("Content-Type", "application/octet-stream");
-    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
-  });
-
-  child.stdout.pipe(res);
-
-  child.on("error", (error) => {
-    if (!res.headersSent) {
+  fs.mkdtemp(path.join(os.tmpdir(), "yt-dlp-api-"), (tempError, tempDir) => {
+    if (tempError) {
       res.status(500).json({
-        error: "Failed to start yt-dlp.",
-        details: error.message
+        error: "Failed to create temp directory.",
+        details: tempError.message
       });
       return;
     }
 
-    res.destroy(error);
-  });
+    const outputTemplate = path.join(tempDir, "video.%(ext)s");
+    const args = [
+      "--no-playlist",
+      "--no-warnings",
+      "--merge-output-format",
+      "mp4",
+      "-f",
+      format,
+      "-o",
+      outputTemplate,
+      url
+    ];
 
-  child.on("close", (code) => {
-    if (code === 0) {
-      if (!streamStarted && !res.headersSent) {
-        res.status(502).json({
-          error: "yt-dlp returned no data."
+    const child = spawn(YT_DLP_PATH, args, {
+      stdio: ["ignore", "ignore", "pipe"]
+    });
+
+    let stderr = "";
+    let finished = false;
+
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on("error", (error) => {
+      cleanupDir(tempDir);
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "Failed to start yt-dlp.",
+          details: error.message
         });
+        return;
       }
-      return;
-    }
 
-    const message = stderr.trim() || `yt-dlp exited with code ${code}`;
+      res.destroy(error);
+    });
 
-    if (!streamStarted && !res.headersSent) {
-      res.status(502).json({
-        error: "yt-dlp failed.",
-        details: message
+    child.on("close", (code) => {
+      finished = true;
+
+      if (code !== 0) {
+        cleanupDir(tempDir);
+        if (!res.headersSent) {
+          res.status(502).json({
+            error: "yt-dlp failed.",
+            details: stderr.trim() || `yt-dlp exited with code ${code}`
+          });
+        }
+        return;
+      }
+
+      fs.readdir(tempDir, (readError, files) => {
+        if (readError) {
+          cleanupDir(tempDir);
+          res.status(500).json({
+            error: "Failed to inspect downloaded file.",
+            details: readError.message
+          });
+          return;
+        }
+
+        const videoFile = files.find((file) => !file.endsWith(".part"));
+
+        if (!videoFile) {
+          cleanupDir(tempDir);
+          res.status(502).json({
+            error: "yt-dlp returned no file."
+          });
+          return;
+        }
+
+        const videoPath = path.join(tempDir, videoFile);
+        const stream = fs.createReadStream(videoPath);
+
+        res.status(200);
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+
+        stream.on("error", (streamError) => {
+          cleanupDir(tempDir);
+          if (!res.headersSent) {
+            res.status(500).json({
+              error: "Failed to read downloaded file.",
+              details: streamError.message
+            });
+            return;
+          }
+
+          res.destroy(streamError);
+        });
+
+        res.on("finish", () => {
+          cleanupDir(tempDir);
+        });
+
+        res.on("close", () => {
+          if (!res.writableEnded) {
+            stream.destroy();
+          }
+          cleanupDir(tempDir);
+        });
+
+        stream.pipe(res);
       });
-      return;
-    }
+    });
 
-    if (!clientGone) {
-      res.destroy(new Error(message));
-    }
-  });
-
-  res.on("close", () => {
-    clientGone = !res.writableEnded;
-    if (!child.killed) {
-      child.kill("SIGTERM");
-    }
+    req.on("aborted", () => {
+      if (!finished && !child.killed) {
+        child.kill("SIGTERM");
+      }
+      cleanupDir(tempDir);
+    });
   });
 });
 
